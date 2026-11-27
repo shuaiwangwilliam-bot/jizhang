@@ -167,7 +167,7 @@ function vAdd(){
   <div class="seg"><button type="button" class="e ${!inc?'on':''}" data-act="type" data-v="expense">支出</button><button type="button" class="i ${inc?'on':''}" data-act="type" data-v="income">收入</button></div>
   <label class="amt"><span>$</span><input id="amount" inputmode="decimal" placeholder="0.00" value="${esc(form.amount)}" aria-label="金额"></label>
   <div class="row2"><label class="f">日期<input class="t" type="date" id="date" value="${esc(form.date)}"></label>
-  <label class="f">${inc?'收入来源':'购买了什么'}<input class="t" id="item" maxlength="60" placeholder="${inc?'例如：11月工资':'例如：Costco 采购'}" value="${esc(form.item)}"></label></div>
+  <label class="f">${inc?'收入来源':'商家'}<input class="t" id="item" maxlength="60" placeholder="${inc?'例如：11月工资':'例如：Costco'}" value="${esc(form.item)}"></label></div>
   <div class="lab">类别</div><div class="chips">${cats.map(c=>chip(c,c===form.cat,'cat')).join('')}<button type="button" class="chip add" data-act="adding" data-v="${form.type}">＋ 新分类</button></div>${addBox(form.type)}
   <div class="lab">${inc?'收款方式':'付款方式'}</div><div class="chips">${pays.map(p=>chip(p,p===form.pay,'pay')).join('')}<button type="button" class="chip add" data-act="adding" data-v="pay">＋ 新方式</button></div>${addBox('pay')}
   <button class="btn p primary" type="submit" ${mode==='loading'?'disabled':''}>${mode==='loading'?'连接中…':editing?'保存修改':'保存'}</button>
@@ -183,7 +183,7 @@ function vList(){
     const i=r.type==='income';
     html+=`<button class="rec" data-act="edit" data-id="${esc(r.id)}"><b>${esc(r.item||r.cat)}</b><span class="num ${i?'inc':'exp'}">${i?'+':'-'}${fmt(amt(r))}</span><small>${esc(r.cat)}${r.pay?' · '+esc(r.pay):''}</small></button>`;
   }
-  return `<div class="card"><input class="t" id="search" type="search" placeholder="搜索内容、类别或付款方式" value="${esc(search)}" style="margin:0 0 4px">
+  return `<div class="card"><input class="t" id="search" type="search" placeholder="搜索商家、类别或付款方式" value="${esc(search)}" style="margin:0 0 4px">
   ${html||`<p class="empty">${q?'没有匹配的记录':'这个月还没有记录，去「记一笔」添加吧'}</p>`}
   ${list.length?`<p class="muted">共 ${list.length} 笔 · 点一笔可以修改或删除</p>`:''}</div>`;
 }
@@ -237,7 +237,7 @@ function saveRec(){
 }
 function csvText(list){
   const cell=v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const rows=[['类型','日期','内容','类别','金额','付款方式'],...list.map(r=>[r.type==='income'?'收入':'支出',r.date,r.item,r.cat,(amt(r)/100).toFixed(2),r.pay])];
+  const rows=[['类型','日期','商家/来源','类别','金额','付款方式'],...list.map(r=>[r.type==='income'?'收入':'支出',r.date,r.item,r.cat,(amt(r)/100).toFixed(2),r.pay])];
   return '﻿'+rows.map(a=>a.map(cell).join(',')).join('\r\n');
 }
 async function save(filename,data){
