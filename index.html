@@ -62,7 +62,7 @@ input.t:focus,select.t:focus,button:focus-visible{outline:2px solid var(--blue);
 .day{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);padding:14px 2px 6px;border-bottom:1px solid var(--line)}
 .rec{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;width:100%;text-align:left;padding:12px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;cursor:pointer}
 .rec b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rec small{color:var(--mut);font-size:13px}
+.rec small{color:var(--mut);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rec .num{grid-row:span 2;align-self:center;font-weight:700;font-size:17px}
 .inc{color:var(--inc)}.exp{color:var(--exp)}
 .empty{color:var(--mut);text-align:center;padding:24px 0;margin:0}
@@ -118,7 +118,7 @@ const NAMES={expense:'支出类别',income:'收入类别',pay:'付款方式'};
 const norm=s=>{const o={};for(const k in DEF)o[k]=s&&Array.isArray(s[k])?s[k].filter(x=>typeof x==='string'&&x):DEF[k].slice();if(JSON.stringify(o.pay)===OLDPAY)o.pay=DEF.pay.slice();return o};
 const SOLO=!window.claude;
 let renaming=null,settings=norm(null),months={},cur=today().slice(0,7),view='add',editing=null,adding=null,armed=null,scope='month',search='',note='',mode='loading',store=null,dl=null,pendingImport=null;
-const blank=(type='expense',pay)=>({type,date:today(),item:'',cat:'',amount:'',pay:pay??settings.pay[0]??''});
+const blank=(type='expense',pay)=>({type,date:today(),item:'',what:'',cat:'',amount:'',pay:pay??settings.pay[0]??''});
 let form=blank();
 const items=k=>(months[k]||[]).filter(r=>r&&typeof r==='object');
 const all=()=>Object.keys(months).sort().flatMap(items);
@@ -168,6 +168,7 @@ function vAdd(){
   <label class="amt"><span>$</span><input id="amount" inputmode="decimal" placeholder="0.00" value="${esc(form.amount)}" aria-label="金额"></label>
   <div class="row2"><label class="f">日期<input class="t" type="date" id="date" value="${esc(form.date)}"></label>
   <label class="f">${inc?'收入来源':'商家'}<input class="t" id="item" maxlength="60" placeholder="${inc?'例如：11月工资':'例如：Costco'}" value="${esc(form.item)}"></label></div>
+  <label class="f">${inc?'说明':'具体物品'}<input class="t" id="what" maxlength="120" placeholder="${inc?'可选，例如：含加班费':'例如：牛奶、鸡蛋、水果'}" value="${esc(form.what)}"></label>
   <div class="lab">类别</div><div class="chips">${cats.map(c=>chip(c,c===form.cat,'cat')).join('')}<button type="button" class="chip add" data-act="adding" data-v="${form.type}">＋ 新分类</button></div>${addBox(form.type)}
   <div class="lab">${inc?'收款方式':'付款方式'}</div><div class="chips">${pays.map(p=>chip(p,p===form.pay,'pay')).join('')}<button type="button" class="chip add" data-act="adding" data-v="pay">＋ 新方式</button></div>${addBox('pay')}
   <button class="btn p primary" type="submit" ${mode==='loading'?'disabled':''}>${mode==='loading'?'连接中…':editing?'保存修改':'保存'}</button>
@@ -176,14 +177,14 @@ function vAdd(){
 }
 function vList(){
   const q=search.trim().toLowerCase();
-  const list=items(cur).filter(r=>!q||[r.item,r.cat,r.pay].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.t||0)-(a.t||0));
+  const list=items(cur).filter(r=>!q||[r.item,r.what,r.cat,r.pay].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.t||0)-(a.t||0));
   let html='',day='';
   for(const r of list){
     if(r.date!==day){day=r.date;const s=sums(list.filter(x=>x.date===day));html+=`<div class="day"><span>${esc(day)}</span><span class="num">${s.exp?'支出 '+fmt(s.exp):''}${s.inc&&s.exp?' · ':''}${s.inc?'收入 '+fmt(s.inc):''}</span></div>`}
     const i=r.type==='income';
-    html+=`<button class="rec" data-act="edit" data-id="${esc(r.id)}"><b>${esc(r.item||r.cat)}</b><span class="num ${i?'inc':'exp'}">${i?'+':'-'}${fmt(amt(r))}</span><small>${esc(r.cat)}${r.pay?' · '+esc(r.pay):''}</small></button>`;
+    html+=`<button class="rec" data-act="edit" data-id="${esc(r.id)}"><b>${esc(r.item||r.cat)}</b><span class="num ${i?'inc':'exp'}">${i?'+':'-'}${fmt(amt(r))}</span><small>${r.what?esc(r.what)+' · ':''}${esc(r.cat)}${r.pay?' · '+esc(r.pay):''}</small></button>`;
   }
-  return `<div class="card"><input class="t" id="search" type="search" placeholder="搜索商家、类别或付款方式" value="${esc(search)}" style="margin:0 0 4px">
+  return `<div class="card"><input class="t" id="search" type="search" placeholder="搜索商家、物品、类别或付款方式" value="${esc(search)}" style="margin:0 0 4px">
   ${html||`<p class="empty">${q?'没有匹配的记录':'这个月还没有记录，去「记一笔」添加吧'}</p>`}
   ${list.length?`<p class="muted">共 ${list.length} 笔 · 点一笔可以修改或删除</p>`:''}</div>`;
 }
@@ -228,7 +229,7 @@ function saveRec(){
   if(!(c>0))return toast('请输入金额',true);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(form.date))return toast('请选择日期',true);
   if(!form.cat)return toast('请选择类别',true);
-  const rec={id:editing?editing.id:newId(),type:form.type,date:form.date,item:form.item.trim(),cat:form.cat,c,pay:form.pay,t:Date.now()};
+  const rec={id:editing?editing.id:newId(),type:form.type,date:form.date,item:form.item.trim(),what:form.what.trim(),cat:form.cat,c,pay:form.pay,t:Date.now()};
   const k=rec.date.slice(0,7),was=editing;
   if(was){const rest=items(was.month).filter(r=>r.id!==rec.id);if(was.month!==k){putMonth(was.month,rest);putMonth(k,[...items(k),rec])}else putMonth(k,[...rest,rec])}
   else putMonth(k,[...items(k),rec]);
@@ -237,7 +238,7 @@ function saveRec(){
 }
 function csvText(list){
   const cell=v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const rows=[['类型','日期','商家/来源','类别','金额','付款方式'],...list.map(r=>[r.type==='income'?'收入':'支出',r.date,r.item,r.cat,(amt(r)/100).toFixed(2),r.pay])];
+  const rows=[['类型','日期','商家/来源','具体物品/说明','类别','金额','付款方式'],...list.map(r=>[r.type==='income'?'收入':'支出',r.date,r.item,r.what,r.cat,(amt(r)/100).toFixed(2),r.pay])];
   return '﻿'+rows.map(a=>a.map(cell).join(',')).join('\r\n');
 }
 async function save(filename,data){
@@ -285,7 +286,7 @@ document.addEventListener('click',e=>{
     case 'rm':{const k=b.dataset.k,key=k+'|'+v;if(armed!==key){armed=key;break}
       settings[k]=settings[k].filter(x=>x!==v);saveSettings();armed=null;toast('已删除：'+v);break}
     case 'edit':{const r=items(cur).find(x=>x.id===b.dataset.id);if(!r)return;
-      editing={id:r.id,month:cur};form={type:r.type==='income'?'income':'expense',date:r.date,item:r.item||'',cat:r.cat||'',amount:(amt(r)/100).toFixed(2),pay:r.pay||''};view='add';adding=null;window.scrollTo(0,0);break}
+      editing={id:r.id,month:cur};form={type:r.type==='income'?'income':'expense',date:r.date,item:r.item||'',what:r.what||'',cat:r.cat||'',amount:(amt(r)/100).toFixed(2),pay:r.pay||''};view='add';adding=null;window.scrollTo(0,0);break}
     case 'cancel':editing=null;form=blank(form.type);view='list';break;
     case 'del':if(armed!=='rec'){armed='rec';break}
       putMonth(editing.month,items(editing.month).filter(r=>r.id!==editing.id));editing=null;armed=null;form=blank();view='list';toast('已删除');break;
@@ -305,7 +306,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('submit',e=>{e.preventDefault();saveRec()});
 document.addEventListener('input',e=>{const id=e.target.id;
-  if(id==='amount'||id==='date'||id==='item')form[id]=e.target.value;
+  if(id==='amount'||id==='date'||id==='item'||id==='what')form[id]=e.target.value;
   if(id==='search'){search=e.target.value;const pos=e.target.selectionStart;render();const s=$('#search');s.focus();try{s.setSelectionRange(pos,pos)}catch(_){}}
 });
 /* ---------- drag to reorder ---------- */
